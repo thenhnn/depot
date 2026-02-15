@@ -528,22 +528,6 @@
           revert = true;
         })
       ]
-      ++ lib.optionals stdenv.hostPlatform.isAarch64 [
-        # Reverts decommit pooled pages which causes random crashes of tabs on systems
-        # with page sizes different than 4k. It 'supports' runtime page sizes, but has
-        # a hardcode for aarch64 systems.
-        # https://issues.chromium.org/issues/378017037
-        (fetchpatch {
-          name = "reverted-v8-decommit-pooled-paged-by-default.patch";
-          # https://chromium-review.googlesource.com/c/v8/v8/+/5864909
-          url = "https://chromium.googlesource.com/v8/v8/+/1ab1a14ad97394d384d8dc6de51bb229625e66d6^!?format=TEXT";
-          decode = "base64 -d";
-          stripLen = 1;
-          extraPrefix = "v8/";
-          revert = true;
-          hash = "sha256-PuinMLhJ2W4KPXI5K0ujw85ENTB1wG7Hv785SZ55xnY=";
-        })
-      ]
       ++ [
         # Modify the nodejs version check added in https://chromium-review.googlesource.com/c/chromium/src/+/6334038
         # to look for the minimal version, not the exact version (major.minor.patch). The linked CL makes a case for
@@ -566,6 +550,29 @@
         # Rebased variant of the patch above due to
         # https://chromium-review.googlesource.com/c/chromium/src/+/6897026
         "${nixpkgs}/patches/chromium-141-rust.patch"
+      ]
+      ++ lib.optionals (chromiumVersionAtLeast "145" && !ungoogled) [
+        # Non-backported variant of the patch above for M145
+        (fetchpatch {
+          name = "revert-devtools-frontend-esbuild-instead-of-rollup.patch";
+          # https://chromium-review.googlesource.com/c/devtools/devtools-frontend/+/7485622
+          url = "https://chromium.googlesource.com/devtools/devtools-frontend/+/72846d78927b90a77b51b12d13009320a74067e0^!?format=TEXT";
+          decode = "base64 -d";
+          stripLen = 1;
+          extraPrefix = "third_party/devtools-frontend/src/";
+          revert = true;
+          hash = "sha256-vu60z6PuWavNoEoxW0thSy89WxztOEG50V1ZSfJRRug=";
+        })
+        (fetchpatch {
+          name = "revert-devtools-frontend-reland-use-native-rollup.patch";
+          # https://chromium-review.googlesource.com/c/devtools/devtools-frontend/+/7368549
+          url = "https://chromium.googlesource.com/devtools/devtools-frontend/+/7c2d912b52f18fff4a9ef7bd64608f2feefc0d83^!?format=TEXT";
+          decode = "base64 -d";
+          stripLen = 1;
+          extraPrefix = "third_party/devtools-frontend/src/";
+          revert = true;
+          hash = "sha256-Qa4GvamZ//0WTAZmDXOQJVz9dnYNzBkD8lYcWOHdVIY=";
+        })
       ];
     postPatch =
       ''
@@ -654,9 +661,14 @@
             '${glibc}/share/locale/'
 
       ''
-      + lib.optionalString systemdSupport ''
-        sed -i -e '/lib_loader.*Load/s!"\(libudev\.so\)!"${lib.getLib systemd}/lib/\1!' \
-          device/udev_linux/udev?_loader.cc
+      + lib.optionalString (chromiumVersionAtLeast "145" && !ungoogled) ''
+        ${lib.getExe buildPackages.git} apply --reverse --directory=third_party/devtools-frontend/src/ ${
+          fetchurl {
+            name = "revert-devtools-frontend-remove-rollup-wasm.patch";
+            url = "https://github.com/ChromeDevTools/devtools-frontend/commit/a377a8c570a370e1bfccaf82f128e3b977dbf866.patch?full_index=1";
+            hash = "sha256-83T37ts54iotGYQAAyVv5CF8fMVrh/tfVRhfWaOlUkI=";
+          }
+        }
       ''
       + ''
         # Allow to put extensions into the system-path.

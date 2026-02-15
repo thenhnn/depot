@@ -81,7 +81,7 @@
       });
     };
 
-    browser = callPackageChromium "${nixpkgsChromiumPath}/browser.nix" {
+    browser = callPackageChromium ./browser.nix {
       inherit chromiumVersionAtLeast ungoogled;
       enableWideVine = false;
     };
