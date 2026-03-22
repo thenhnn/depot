@@ -231,6 +231,7 @@
   };
 
   rustcVersion = buildPackages.rustc.version;
+  llvmVersion = buildPackages.rustc.llvmPackages.llvm.version;
 
   chromiumDeps =
     lib.mapAttrs (
@@ -460,7 +461,6 @@
         # Chromium reads initial_preferences from its own executable directory
         # This patch modifies it to read /etc/chromium/initial_preferences
         "${nixpkgs}/patches/chromium-initial-prefs.patch"
-        ./patches/chromium-144-rustc_nightly_capability.patch
       ]
       ++ lib.optionals (chromiumVersionAtLeast "142" && lib.versionOlder rustcVersion "1.90") [
         (fetchpatch {
@@ -471,16 +471,6 @@
           decode = "base64 -d";
           revert = true;
           hash = "sha256-0vRDz7wwGCsqm38fVvkLLzOOtEtd8CnqyjDLgGofh/o=";
-        })
-      ]
-      ++ lib.optionals (versionRange "142" "143") [
-        (fetchpatch {
-          # Fix https://issues.chromium.org/issues/450752866 by backporting
-          # https://chromium-review.googlesource.com/c/chromium/src/+/7030724 from M143
-          name = "chromium-142-Backport-Add-missing-include-for-FormFieldData-type-completeness.patch";
-          url = "https://chromium.googlesource.com/chromium/src/+/069d424e41f42c6f4a4551334eafc7cfaed6e880^!?format=TEXT";
-          decode = "base64 -d";
-          hash = "sha256-0ueOCHYheSFHRFzEat3TDhnU3Avf0TcNBBBpTkz+saw=";
         })
       ]
       ++ lib.optionals (chromiumVersionAtLeast "142" && lib.versionOlder rustcVersion "1.91") [
@@ -503,29 +493,6 @@
           decode = "base64 -d";
           revert = true;
           hash = "sha256-bYcJqPMbE7hMvhZVnzqHok1crUAdqrzqxr+4IHNzAtg=";
-        })
-      ]
-      ++ lib.optionals (!ungoogled && !chromiumVersionAtLeast "136") [
-        # Note: We since use LLVM v19.1+ on unstable *and* release-24.11 for all version and as such
-        # no longer need this patch. We opt to arbitrarily limit it to versions prior to M136 just
-        # because that's when this revert stopped applying cleanly and defer fully dropping it for
-        # the next cleanup to bundle rebuilding all of chromium and electron.
-        #
-        # Our rustc.llvmPackages is too old for std::hardware_destructive_interference_size
-        # and std::hardware_constructive_interference_size.
-        # So let's revert the change for now and hope that our rustc.llvmPackages and
-        # nixpkgs-stable catch up sooner than later.
-        # https://groups.google.com/a/chromium.org/g/cxx/c/cwktrFxxUY4
-        # https://chromium-review.googlesource.com/c/chromium/src/+/5767325
-        # Note: We exclude the changes made to the partition_allocator (PA), as the revert
-        # would otherwise not apply because upstream reverted those changes to PA already
-        # in https://chromium-review.googlesource.com/c/chromium/src/+/5841144
-        # Note: ungoogled-chromium already reverts this as part of its patchset.
-        (githubPatch {
-          commit = "fc838e8cc887adbe95110045d146b9d5885bf2a9";
-          hash = "sha256-NNKzIp6NYdeZaqBLWDW/qNxiDB1VFRz7msjMXuMOrZ8=";
-          excludes = ["base/allocator/partition_allocator/src/partition_alloc/*"];
-          revert = true;
         })
       ]
       ++ [
@@ -551,29 +518,30 @@
         # https://chromium-review.googlesource.com/c/chromium/src/+/6897026
         "${nixpkgs}/patches/chromium-141-rust.patch"
       ]
-      ++ lib.optionals (chromiumVersionAtLeast "145" && !ungoogled) [
-        # Non-backported variant of the patch above for M145
+      ++ lib.optionals (chromiumVersionAtLeast "146" && lib.versionOlder llvmVersion "23") [
+        # clang++: error: unknown argument: '-fsanitize-ignore-for-ubsan-feature=array-bounds'
         (fetchpatch {
-          name = "revert-devtools-frontend-esbuild-instead-of-rollup.patch";
-          # https://chromium-review.googlesource.com/c/devtools/devtools-frontend/+/7485622
-          url = "https://chromium.googlesource.com/devtools/devtools-frontend/+/72846d78927b90a77b51b12d13009320a74067e0^!?format=TEXT";
+          name = "chromium-146-revert-Update-fsanitizer=array-bounds-config.patch";
+          # https://chromium-review.googlesource.com/c/chromium/src/+/7539408
+          url = "https://chromium.googlesource.com/chromium/src/+/acb47d9a6b56c4889a2ed4216e9968cfc740086c^!?format=TEXT";
           decode = "base64 -d";
-          stripLen = 1;
-          extraPrefix = "third_party/devtools-frontend/src/";
           revert = true;
-          hash = "sha256-vu60z6PuWavNoEoxW0thSy89WxztOEG50V1ZSfJRRug=";
+          hash = "sha256-WZsN2qm6lX121bDf7SoN75flXtCTmPPpwtHK0ayjkPc=";
         })
+      ]
+      ++ lib.optionals (versionRange "146" "147") [
+        # Backport CL 7594600 from M147 to fix the following error:
+        #  error[E0277]: the trait bound `LaneCount<N>: SupportedLaneCount` is not satisfied
+        #  --> ../../third_party/rust/chromium_crates_io/vendor/bytemuck-v1/src/pod.rs:152:40
         (fetchpatch {
-          name = "revert-devtools-frontend-reland-use-native-rollup.patch";
-          # https://chromium-review.googlesource.com/c/devtools/devtools-frontend/+/7368549
-          url = "https://chromium.googlesource.com/devtools/devtools-frontend/+/7c2d912b52f18fff4a9ef7bd64608f2feefc0d83^!?format=TEXT";
+          name = "chromium-146-backport-Remove-now-obsolete-invalid-patch-on-bytemuck-v1.patch";
+          # https://chromium-review.googlesource.com/c/chromium/src/+/7594600
+          url = "https://chromium.googlesource.com/chromium/src/+/90b77efcecb262823fadb67b0ce218846cd9e756^!?format=TEXT";
           decode = "base64 -d";
-          stripLen = 1;
-          extraPrefix = "third_party/devtools-frontend/src/";
-          revert = true;
-          hash = "sha256-Qa4GvamZ//0WTAZmDXOQJVz9dnYNzBkD8lYcWOHdVIY=";
+          hash = "sha256-iDhDdVscy0tinQCRKXOghrn4ZRwlc8YjPZ0xPv0UMEU=";
         })
       ];
+
     postPatch =
       ''
         ln -s ${./gclient_args.gni} build/config/gclient_args.gni
@@ -660,15 +628,6 @@
             '/usr/share/locale/' \
             '${glibc}/share/locale/'
 
-      ''
-      + lib.optionalString (chromiumVersionAtLeast "145" && !ungoogled) ''
-        ${lib.getExe buildPackages.git} apply --reverse --directory=third_party/devtools-frontend/src/ ${
-          fetchurl {
-            name = "revert-devtools-frontend-remove-rollup-wasm.patch";
-            url = "https://github.com/ChromeDevTools/devtools-frontend/commit/a377a8c570a370e1bfccaf82f128e3b977dbf866.patch?full_index=1";
-            hash = "sha256-83T37ts54iotGYQAAyVv5CF8fMVrh/tfVRhfWaOlUkI=";
-          }
-        }
       ''
       + ''
         # Allow to put extensions into the system-path.
@@ -831,12 +790,20 @@
       }
     );
 
-    preConfigure = ''
-      (
-        cd third_party/node
-        grep patch update_npm_deps | sh
-      )
-    '';
+    preConfigure =
+      ''
+        (
+          cd third_party/node
+          grep patch update_npm_deps | sh
+        )
+      ''
+      # Our node_modules, unlike the tarball from chromium, includes @lit/reactive-element/development,
+      # which causes a "error: TS2403: Subsequent variable declarations must have the same type" later in the build.
+      # TypeScript is parsing both @lit/reactive-element/reactive-element.d.ts and @lit/reactive-element/development/reactive-element.d.ts,
+      # but lit_reactive_element.patch only patches the former.
+      + lib.optionalString (chromiumVersionAtLeast "146") ''
+        rm -r third_party/node/node_modules/@lit/reactive-element/development
+      '';
 
     configurePhase = ''
       runHook preConfigure
