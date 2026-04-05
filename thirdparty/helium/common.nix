@@ -671,6 +671,8 @@
         ${ungoogler}/utils/replace_resources.py heliumResources/helium_resources.txt heliumResources .
       '';
 
+    hardeningDisable = ["strictflexarrays1"];
+
     llvmCcAndBintools = symlinkJoin {
       name = "llvmCcAndBintools";
       paths = [
