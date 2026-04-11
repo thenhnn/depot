@@ -272,7 +272,7 @@
             popd
           ''
           else ''
-            mkdir -p ${builtins.dirOf path}
+            mkdir -p ${dirOf path}
             cp -r ${dep}/. ${path}
           ''
         )
@@ -461,41 +461,7 @@
         # Chromium reads initial_preferences from its own executable directory
         # This patch modifies it to read /etc/chromium/initial_preferences
         "${nixpkgs}/patches/chromium-initial-prefs.patch"
-      ]
-      ++ lib.optionals (chromiumVersionAtLeast "142" && lib.versionOlder rustcVersion "1.90") [
-        (fetchpatch {
-          # Fix "ld.lld: error: undefined symbol: __rustc::__rust_alloc_error_handler_should_panic'"
-          # with Rust < 1.90 by reverting https://chromium-review.googlesource.com/c/chromium/src/+/6935385
-          name = "chromium-142-Revert-rust-Remove-the-old-__rust_alloc_error_handler_should_panic-symbol.patch";
-          url = "https://chromium.googlesource.com/chromium/src/+/e33287758f2234d6aabfc5d4e011c4e81e3a47cf^!?format=TEXT";
-          decode = "base64 -d";
-          revert = true;
-          hash = "sha256-0vRDz7wwGCsqm38fVvkLLzOOtEtd8CnqyjDLgGofh/o=";
-        })
-      ]
-      ++ lib.optionals (chromiumVersionAtLeast "142" && lib.versionOlder rustcVersion "1.91") [
-        # Fix the following error when compiling CrabbyAvif with Rust < 1.91 due to
-        # https://github.com/rust-lang/rust/pull/142681 by reverting
-        # https://github.com/webmproject/CrabbyAvif/pull/663 and
-        # https://github.com/webmproject/CrabbyAvif/pull/654 and
-        # https://chromium-review.googlesource.com/c/chromium/src/+/6960510
-        #
-        #  error: cannot find attribute `sanitize` in this scope
-        #    --> ../../third_party/crabbyavif/src/src/capi/io.rs:210:41
-        #      |
-        #  210 |     #[cfg_attr(feature = "disable_cfi", sanitize(cfi = "off"))]
-        #      |                                         ^^^^^^^^
-        #
-        "${nixpkgs}/patches/chromium-142-crabbyavif-rust-no_sanitize.patch"
-        (fetchpatch {
-          name = "chromium-142-crabbyavif-Revert-Enable-disable_cfi-feature.patch";
-          url = "https://chromium.googlesource.com/chromium/src/+/9415f40bc6f853547f791e633be638c71368ce56^!?format=TEXT";
-          decode = "base64 -d";
-          revert = true;
-          hash = "sha256-bYcJqPMbE7hMvhZVnzqHok1crUAdqrzqxr+4IHNzAtg=";
-        })
-      ]
-      ++ [
+
         # Modify the nodejs version check added in https://chromium-review.googlesource.com/c/chromium/src/+/6334038
         # to look for the minimal version, not the exact version (major.minor.patch). The linked CL makes a case for
         # preventing compilations of chromium with versions below their intended version, not about running the very
@@ -529,17 +495,8 @@
           hash = "sha256-WZsN2qm6lX121bDf7SoN75flXtCTmPPpwtHK0ayjkPc=";
         })
       ]
-      ++ lib.optionals (versionRange "146" "147") [
-        # Backport CL 7594600 from M147 to fix the following error:
-        #  error[E0277]: the trait bound `LaneCount<N>: SupportedLaneCount` is not satisfied
-        #  --> ../../third_party/rust/chromium_crates_io/vendor/bytemuck-v1/src/pod.rs:152:40
-        (fetchpatch {
-          name = "chromium-146-backport-Remove-now-obsolete-invalid-patch-on-bytemuck-v1.patch";
-          # https://chromium-review.googlesource.com/c/chromium/src/+/7594600
-          url = "https://chromium.googlesource.com/chromium/src/+/90b77efcecb262823fadb67b0ce218846cd9e756^!?format=TEXT";
-          decode = "base64 -d";
-          hash = "sha256-iDhDdVscy0tinQCRKXOghrn4ZRwlc8YjPZ0xPv0UMEU=";
-        })
+      ++ lib.optionals (chromiumVersionAtLeast "147" && lib.versionOlder llvmVersion "23") [
+        ./patches/chromium-147-llvm-22.patch
       ];
 
     postPatch =
