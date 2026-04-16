@@ -7,8 +7,8 @@
     ungoogledRev = {
       owner = "imputnet";
       repo = "helium";
-      rev = "daa32b5d676b1009f5a6664ad0d19a349060cb69";
-      hash = "sha256-VXTGCUiY5PZ4dIUkqi0yerenBsgHgD8w9VFkssjlnis=";
+      rev = "603b96d4de85deac64de58df1c52eaca6b6c6412";
+      hash = "sha256-6fHtPxWVUpWh5ZgtAwyp72qAWnJQ72YWv48s8gFKHuo=";
     };
     inherit pkgs use;
   };
