@@ -11,9 +11,7 @@
   pkgsBuildBuild,
   # Channel data:
   upstream-info,
-  versionRange,
   # Helper functions:
-  chromiumVersionAtLeast,
   # Native build inputs:
   ninja,
   bashInteractive,
@@ -92,8 +90,7 @@
   proprietaryCodecs ? true,
   pulseSupport ? false,
   libpulseaudio ? null,
-  ungoogled ? false,
-  ungoogled-chromium,
+  helium-patches,
   # Optional dependencies:
   libgcrypt ? null, # cupsSupport
   systemdSupport ? lib.meta.availableOn stdenv.hostPlatform systemd,
@@ -112,17 +109,6 @@
   # The additional attributes for creating derivations based on the chromium
   # source tree.
   extraAttrs = buildFun base;
-
-  githubPatch = {
-    commit,
-    hash,
-    revert ? false,
-    excludes ? [],
-  }:
-    fetchpatch {
-      url = "https://github.com/chromium/chromium/commit/${commit}.patch";
-      inherit hash revert excludes;
-    };
 
   mkGnFlags = let
     # Serialize Nix types into GN types according to this document:
@@ -167,9 +153,6 @@
   buildPath = "out/${buildType}";
   libExecPath = "$out/libexec/${packageName}";
 
-  ungoogler = ungoogled-chromium {
-    inherit (upstream-info.deps.ungoogled-patches) rev hash;
-  };
   heliumFileList = builtins.fromJSON (builtins.readFile ./deps.json);
   heliumCopyCommands = lib.concatLines (lib.mapAttrsToList (
       name: value: let
@@ -467,8 +450,7 @@
         # preventing compilations of chromium with versions below their intended version, not about running the very
         # exact version or even running a newer version.
         "${nixpkgs}/patches/chromium-136-nodejs-assert-minimal-version-instead-of-exact-match.patch"
-      ]
-      ++ lib.optionals (chromiumVersionAtLeast "138") [
+
         (fetchpatch {
           # Unbreak building with Rust 1.89+ which introduced
           # a new mismatched_lifetime_syntaxes lint.
@@ -484,7 +466,7 @@
         # https://chromium-review.googlesource.com/c/chromium/src/+/6897026
         "${nixpkgs}/patches/chromium-141-rust.patch"
       ]
-      ++ lib.optionals (chromiumVersionAtLeast "146" && lib.versionOlder llvmVersion "23") [
+      ++ lib.optionals (lib.versionOlder llvmVersion "23") [
         # clang++: error: unknown argument: '-fsanitize-ignore-for-ubsan-feature=array-bounds'
         (fetchpatch {
           name = "chromium-146-revert-Update-fsanitizer=array-bounds-config.patch";
@@ -494,8 +476,7 @@
           revert = true;
           hash = "sha256-WZsN2qm6lX121bDf7SoN75flXtCTmPPpwtHK0ayjkPc=";
         })
-      ]
-      ++ lib.optionals (chromiumVersionAtLeast "147" && lib.versionOlder llvmVersion "23") [
+
         ./patches/chromium-147-llvm-22.patch
       ];
 
@@ -598,13 +579,13 @@
 
         patchShebangs .
       ''
-      + lib.optionalString ungoogled ''
+      + ''
         # Prune binaries (ungoogled only) *before* linking our own binaries:
-        ${ungoogler}/utils/prune_binaries.py . ${ungoogler}/pruning.list || echo "some errors"
+        ${helium-patches}/utils/prune_binaries.py . ${helium-patches}/pruning.list || echo "some errors"
       ''
       + ''
         # Link to our own Node.js and Java (required during the build):
-        mkdir -p third_party/node/linux/node-linux-x64/bin${lib.optionalString ungoogled " third_party/jdk/current/bin/"}
+        mkdir -p third_party/node/linux/node-linux-x64/bin third_party/jdk/current/bin/
         ln -sf "${pkgsBuildHost.nodejs}/bin/node" third_party/node/linux/node-linux-x64/bin/node
         ln -s "${pkgsBuildHost.jdk17_headless}/bin/java" third_party/jdk/current/bin/
 
@@ -617,15 +598,15 @@
         substituteInPlace build/toolchain/linux/BUILD.gn \
           --replace 'toolprefix = "aarch64-linux-gnu-"' 'toolprefix = ""'
       ''
-      + lib.optionalString ungoogled ''
+      + ''
         ${heliumCopyCommands}
-        ${ungoogler}/utils/patches.py . ${ungoogler}/patches
-        ${ungoogler}/utils/domain_substitution.py apply -r ${ungoogler}/domain_regex.list -f ${ungoogler}/domain_substitution.list -c ./ungoogled-domsubcache.tar.gz .
-        ${ungoogler}/utils/name_substitution.py --sub -t .
-        ${ungoogler}/utils/helium_version.py --tree ${ungoogler} --chromium-tree .
-        cp -r --no-preserve=mode,ownership --dereference "${ungoogler}/resources" heliumResources
-        ${python3WithPackages}/bin/python3 ${ungoogler}/utils/generate_resources.py heliumResources/generate_resources.txt heliumResources
-        ${ungoogler}/utils/replace_resources.py heliumResources/helium_resources.txt heliumResources .
+        ${helium-patches}/utils/patches.py . ${helium-patches}/patches
+        ${helium-patches}/utils/domain_substitution.py apply -r ${helium-patches}/domain_regex.list -f ${helium-patches}/domain_substitution.list -c ./ungoogled-domsubcache.tar.gz .
+        ${helium-patches}/utils/name_substitution.py --sub -t .
+        ${helium-patches}/utils/helium_version.py --tree ${helium-patches} --chromium-tree .
+        cp -r --no-preserve=mode,ownership --dereference "${helium-patches}/resources" heliumResources
+        ${python3WithPackages}/bin/python3 ${helium-patches}/utils/generate_resources.py heliumResources/generate_resources.txt heliumResources
+        ${helium-patches}/utils/replace_resources.py heliumResources/helium_resources.txt heliumResources .
       '';
 
     hardeningDisable = ["strictflexarrays1"];
@@ -687,8 +668,6 @@
         symbol_level = 0;
         blink_symbol_level = 0;
 
-        google_api_key = "";
-
         # Optional features:
         use_gio = true;
         use_cups = cupsSupport;
@@ -702,10 +681,6 @@
 
         use_qt5 = false;
         use_qt6 = false;
-
-        # LLVM < v21 does not support --warning-suppression-mappings yet:
-        # TODO: remove when updating LLVM
-        clang_warning_suppression_file = "";
 
         # To fix the build as we don't provide libffi_pic.a
         # (ld.lld: error: unable to find library -l:libffi_pic.a):
@@ -740,8 +715,8 @@
         use_pulseaudio = true;
         link_pulseaudio = true;
       }
-      // lib.optionalAttrs ungoogled (
-        lib.importTOML "${nixpkgs}/ungoogled-flags.toml"
+      // (
+        lib.importTOML "${helium-patches}/flags.gn"
       )
       // (extraAttrs.gnFlags or {})
       // {
@@ -760,7 +735,7 @@
       # which causes a "error: TS2403: Subsequent variable declarations must have the same type" later in the build.
       # TypeScript is parsing both @lit/reactive-element/reactive-element.d.ts and @lit/reactive-element/development/reactive-element.d.ts,
       # but lit_reactive_element.patch only patches the former.
-      + lib.optionalString (chromiumVersionAtLeast "146") ''
+      + ''
         rm -r third_party/node/node_modules/@lit/reactive-element/development
       '';
 
@@ -828,8 +803,6 @@
     '';
 
     passthru = {
-      updateScript = ./update.mjs;
-
       inherit chromiumDeps npmDeps;
     };
   };

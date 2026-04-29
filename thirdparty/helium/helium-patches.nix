@@ -1,13 +1,12 @@
-{
-  ungoogledRev,
-  pkgs,
-  ...
-}:
+{pkgs, ...}:
 pkgs.stdenv.mkDerivation {
-  pname = "helium-ungoogled-chromium";
-  version = "helium-${ungoogledRev.rev}";
+  pname = "helium-patches";
+  version = "0.11.7";
   src = pkgs.fetchFromGitHub {
-    inherit (ungoogledRev) owner repo rev hash;
+    owner = "imputnet";
+    repo = "helium";
+    rev = "7330d5770912745a3a208c19c86d75ff42081a69";
+    hash = "sha256-87sgs1iv30eD7vRfSV7iMUoz/yKU26Z/1gD27zSA+UU=";
   };
 
   dontBuild = true;

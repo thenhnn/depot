@@ -1,6 +1,6 @@
 {
   nixpkgsChromiumPath,
-  ungoogler,
+  helium-patches,
   ...
 }: {
   newScope,
@@ -22,12 +22,10 @@
   pipewire,
   wayland,
   lib,
-  electron-source, # for warnObsoleteVersionConditional
   # package customization
   # Note: enable* flags should not require full rebuilds (i.e. only affect the wrapper)
   upstream-info ? (lib.importJSON ./sources.json),
   proprietaryCodecs ? true,
-  ungoogled ? true, # Whether to build chromium or ungoogled-chromium
   cupsSupport ? true,
   pulseSupport ? config.pulseaudio or stdenv.hostPlatform.isLinux,
   commandLineArgs ? "",
@@ -35,41 +33,20 @@
 }: let
   stdenv = pkgs.rustc.llvmPackages.stdenv;
 
-  # Helper functions for changes that depend on specific versions:
-  warnObsoleteVersionConditional = min-version: result: let
-    min-supported-version = (lib.head (lib.attrValues electron-source)).unwrapped.info.chromium.version;
-    # Warning can be toggled by changing the value of enabled:
-    enabled = false;
-  in
-    lib.warnIf (enabled && lib.versionAtLeast min-supported-version min-version)
-    "chromium: min-supported-version ${min-supported-version} is newer than a conditional bounded at ${min-version}. You can safely delete it."
-    result;
-  chromiumVersionAtLeast = min-version: let
-    result = lib.versionAtLeast upstream-info.version min-version;
-  in
-    warnObsoleteVersionConditional min-version result;
-  versionRange = min-version: upto-version: let
-    inherit (upstream-info) version;
-    result = lib.versionAtLeast version min-version && lib.versionOlder version upto-version;
-  in
-    warnObsoleteVersionConditional upto-version result;
-
   callPackageChromium = newScope chromium;
 
   chromium = rec {
-    inherit stdenv upstream-info;
+    inherit stdenv upstream-info helium-patches;
 
     mkChromiumDerivation = callPackageChromium ./common.nix {
-      ungoogled = true;
       nixpkgs = nixpkgsChromiumPath;
-      inherit chromiumVersionAtLeast versionRange;
       inherit
         proprietaryCodecs
         cupsSupport
         pulseSupport
         ;
 
-      gnChromium = buildPackages.gn.overrideAttrs (oldAttrs: {
+      gnChromium = buildPackages.gn.overrideAttrs (_: {
         version =
           if (upstream-info.deps.gn ? "version")
           then upstream-info.deps.gn.version
@@ -81,13 +58,7 @@
       });
     };
 
-    browser = callPackageChromium ./browser.nix {
-      inherit chromiumVersionAtLeast ungoogled;
-      enableWideVine = false;
-    };
-
-    # always use helium's ungoogled version.
-    ungoogled-chromium = _: ungoogler;
+    browser = callPackageChromium ./browser.nix {};
   };
 
   sandboxExecutableName = chromium.browser.passthru.sandboxExecutableName;
