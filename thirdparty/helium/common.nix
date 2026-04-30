@@ -58,10 +58,6 @@
   glib,
   gtk3,
   dbus-glib,
-  libXScrnSaver,
-  libXcursor,
-  libXtst,
-  libxshmfence,
   libGLU,
   libGL,
   dri-pkgconfig-stub,
@@ -69,7 +65,6 @@
   pciutils,
   protobuf,
   speechd-minimal,
-  libXdamage,
   at-spi2-core,
   pipewire,
   libva,
@@ -91,6 +86,7 @@
   pulseSupport ? false,
   libpulseaudio ? null,
   helium-patches,
+  pgoProfile ? null,
   # Optional dependencies:
   libgcrypt ? null, # cupsSupport
   systemdSupport ? lib.meta.availableOn stdenv.hostPlatform systemd,
@@ -346,17 +342,12 @@
         glib
         gtk3
         dbus-glib
-        libXScrnSaver
-        libXcursor
-        libXtst
-        libxshmfence
         libGLU
         libGL
         libgbm
         pciutils
         protobuf
         speechd-minimal
-        libXdamage
         at-spi2-core
         pipewire
         libva
@@ -402,10 +393,6 @@
         glib
         gtk3
         dbus-glib
-        libXScrnSaver
-        libXcursor
-        libXtst
-        libxshmfence
         libGLU
         libGL
         dri-pkgconfig-stub
@@ -413,7 +400,6 @@
         pciutils
         protobuf
         speechd-minimal
-        libXdamage
         at-spi2-core
         pipewire
         libva
@@ -672,6 +658,10 @@
         use_gio = true;
         use_cups = cupsSupport;
 
+        ozone_platform = "wayland";
+        ozone_platform_wayland = true;
+        ozone_platform_x11 = false;
+
         # Provides the enable-webrtc-pipewire-capturer flag to support Wayland screen capture:
         rtc_use_pipewire = true;
         # Disable PGO because the profile data requires a newer compiler version (LLVM 14 isn't sufficient):
@@ -718,6 +708,10 @@
       // (
         lib.importTOML "${helium-patches}/flags.gn"
       )
+      // lib.optionalAttrs (pgoProfile != null) {
+        chrome_pgo_phase = 2;
+        pgo_data_path = "${pgoProfile}";
+      }
       // (extraAttrs.gnFlags or {})
       // {
         enable_widevine = false;

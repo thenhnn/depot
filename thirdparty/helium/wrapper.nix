@@ -38,12 +38,23 @@
   chromium = rec {
     inherit stdenv upstream-info helium-patches;
 
+    #pgoProfile = let
+    #  # https://chromium.googlesource.com/chromium/src/+/68ba233a543d25e75c30f1228dd3bafa2da96937/chrome/build/linux.pgo.txt
+    #  profileName = "chrome-linux-7727-1777289062-73586531a943600f94fcc3416d1193bf8d0eff31-b606ce4525c5581a89bb05839800b5ea233e9d51.profdata";
+    #in
+    #  pkgs.fetchurl {
+    #    name = profileName;
+    #    url = "https://storage.googleapis.com/chromium-optimization-profiles/pgo_profiles/${profileName}";
+    #    hash = "sha256-Kfh7oFR+Iw4gZ7fO24fWR4rpIHSFA4CBf0X/ePGhyTQ=";
+    #  };
+
     mkChromiumDerivation = callPackageChromium ./common.nix {
       nixpkgs = nixpkgsChromiumPath;
       inherit
         proprietaryCodecs
         cupsSupport
         pulseSupport
+        #   pgoProfile
         ;
 
       gnChromium = buildPackages.gn.overrideAttrs (_: {
