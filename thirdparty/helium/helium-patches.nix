@@ -1,12 +1,12 @@
 {pkgs, ...}:
 pkgs.stdenv.mkDerivation {
   pname = "helium-patches";
-  version = "0.12.1";
+  version = "0.12.3";
   src = pkgs.fetchFromGitHub {
     owner = "imputnet";
     repo = "helium";
-    rev = "4f69833a0142f2243c44ea38d0b06eb265d61cab";
-    hash = "sha256-KGBDlnSG26h/cl0y13zP+0d22JjFlHfqrJDxwrs7I04=";
+    rev = "d14e214a34e466852e109407c86b5da544ae23cf";
+    hash = "sha256-UosaSVK6xMdIM2Qyl5Qx4th+IbWLVRo6wl/IZA5njVM=";
   };
 
   dontBuild = true;
