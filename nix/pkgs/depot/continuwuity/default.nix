@@ -34,7 +34,7 @@ in
       patches = [./systemd-fds.patch];
     };
 
-    cargoHash = "sha256-aS10C0+4rcvvmEj3awKt4Fq20fUsZxIykR7mSjnq5gw=";
+    cargoHash = "sha256-2n82cADaUSnHxbiJMzXWwsh/SHlYSvAO0d7asSa4FCc=";
 
     nativeBuildInputs = [
       pkg-config
@@ -61,14 +61,13 @@ in
       "brotli_compression"
       "element_hacks"
       "gzip_compression"
+      "ring"
       "release_max_log_level"
       "systemd"
       "zstd_compression"
       "journald"
-      #"url_preview"
       "otlp_telemetry"
       "media_thumbnail"
-      "blurhashing"
     ];
 
     meta = {
