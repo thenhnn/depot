@@ -11,7 +11,7 @@
   rocksdbSrc,
 }: let
   rocksdb' =
-    (rocksdb.overrideAttrs (old: {
+    (rocksdb.overrideAttrs (_old: {
       src = rocksdbSrc;
       version = "continuwuity";
       postPatch = ''

@@ -2,7 +2,7 @@
   lib,
   mkChromiumDerivation,
 }:
-mkChromiumDerivation (base: rec {
+mkChromiumDerivation (_base: rec {
   name = "chromium-browser";
   packageName = "chromium";
   buildTargets = [

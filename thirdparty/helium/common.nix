@@ -151,7 +151,7 @@
 
   heliumFileList = builtins.fromJSON (builtins.readFile ./deps.json);
   heliumCopyCommands = lib.concatLines (lib.mapAttrsToList (
-      name: value: let
+      _name: value: let
         file = fetchurl {
           url = value.url;
           hash = "sha256:" + value.sha256;
@@ -214,7 +214,7 @@
 
   chromiumDeps =
     lib.mapAttrs (
-      path: args:
+      _path: args:
         fetchFromGitiles (
           removeAttrs args ["recompress"]
           // lib.optionalAttrs args.recompress or false {
