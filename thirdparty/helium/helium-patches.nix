@@ -1,12 +1,12 @@
 {pkgs, ...}:
-pkgs.stdenv.mkDerivation {
+pkgs.stdenv.mkDerivation (finalAttrs: {
   pname = "helium-patches";
-  version = "0.13.1";
+  version = "0.13.2";
   src = pkgs.fetchFromGitHub {
     owner = "imputnet";
     repo = "helium";
-    rev = "5bf45fed697113e0c5b1d47354c98f8d24a6d07a";
-    hash = "sha256-hDnbVL6kITzdnqjS3WHbILDWrgMQbtWVPHSMVoX6gU0=";
+    tag = finalAttrs.version;
+    hash = "sha256-pqQCpza4kQYEELTvixLAq0iH9EXqrn4JrTlJRk2Mcwk=";
   };
 
   dontBuild = true;
@@ -25,4 +25,4 @@ pkgs.stdenv.mkDerivation {
     cp -R * $out/
     wrapProgram $out/utils/patches.py --add-flags "apply" --prefix PATH : "${pkgs.patch}/bin"
   '';
-}
+})
