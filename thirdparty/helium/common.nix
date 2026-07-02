@@ -423,10 +423,6 @@
         "${nixpkgs}/patches/cross-compile.patch"
         # Optional patch to use SOURCE_DATE_EPOCH in compute_build_timestamp.py (should be upstreamed):
         "${nixpkgs}/patches/no-build-timestamps.patch"
-        # Required to fix the build with a more recent wayland-protocols version
-        # (we currently package 1.26 in Nixpkgs while Chromium bundles 1.21):
-        # Source: https://bugs.chromium.org/p/angleproject/issues/detail?id=7582#c1
-        "${nixpkgs}/patches/angle-wayland-include-protocol.patch"
         # Chromium reads initial_preferences from its own executable directory
         # This patch modifies it to read /etc/chromium/initial_preferences
         "${nixpkgs}/patches/chromium-initial-prefs.patch"
@@ -448,14 +444,25 @@
           includes = ["build/rust/cargo_crate.gni"];
           hash = "sha256-xf1Jq5v3InXkiVH0uT7+h1HPwZse5MDcHKuJNjSLR6k=";
         })
-        # Rebased variant of the patch above due to
-        # https://chromium-review.googlesource.com/c/chromium/src/+/6897026
-        "${nixpkgs}/patches/chromium-141-rust.patch"
 
         # Fix building with stable Rust 1.95 (https://issues.chromium.org/issues/480176523):
         #  error[E0425]: cannot find type `LaneCount` in module `core::simd`
         #  --> ../../third_party/rust/chromium_crates_io/vendor/bytemuck-v1/src/zeroable.rs:234:15
         ./patches/chromium-142-bytemuck-rust-1.95.patch
+
+        # Rebased variant of the rust patch due to
+        # https://chromium-review.googlesource.com/c/chromium/src/+/7858711
+        ./patches/chromium-150-rust.patch
+
+        # ninja: Entering directory `out/Release'
+        # ninja: error: 'ar', needed by 'default_for_rust_host_build_tools/obj/build/rust/allocator/liballoc_error_handler_impl.a', missing and no known rule to make it
+        (fetchpatch {
+          name = "chromium-150-backport-build--Omit-ar-from-inputs-when-resolved-via--PATH.patch";
+          # https://chromium-review.googlesource.com/c/chromium/src/+/7904982
+          url = "https://chromium.googlesource.com/chromium/src/+/60f987d8d5f7272793a40290d060b8f50933f825^!?format=TEXT";
+          decode = "base64 -d";
+          hash = "sha256-MryWxSwBxSIONhl3X1cDxTWwNWy8a4yt/sqkrueSUNs=";
+        })
       ]
       ++ lib.optionals (lib.versionOlder llvmVersion "23") [
         # clang++: error: unknown argument: '-fno-lifetime-dse'
@@ -691,6 +698,11 @@
         clang_base_path = "${llvmCcAndBintools}";
         use_clang_modules = false;
 
+        # ERROR at //build/modules/BUILD.gn:80:23: Directory does not exist: /usr/include/
+        #     system_headers += expand_directory("${sysroot}/${root_include_dir}", true)
+        #                       ^------------------------------------------------------
+        use_unified_system_module = false;
+
         use_qt5 = false;
         use_qt6 = false;
 
@@ -786,6 +798,11 @@
     env.BUILD_NM = "$NM_FOR_BUILD";
     env.BUILD_READELF = "$READELF_FOR_BUILD";
     env.RUSTC_BOOTSTRAP = "1";
+
+    # [56385/56385] LINK ./chrome
+    # FAILED: [code=1] chrome
+    # /nix/store/[...]/bin/ld.lld: line 288: /nix/store/[...]/bin/ld.lld: Argument list too long
+    env.NIX_LD_USE_RESPONSE_FILE = 1;
 
     buildPhase = let
       buildCommand = target: ''
