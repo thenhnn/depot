@@ -34,7 +34,7 @@ in
       patches = [./systemd-fds.patch];
     };
 
-    cargoHash = "sha256-FK+TKdSY6V8Cb+M2PGUAg8xALvcj31qBGDIOhEga0zg=";
+    cargoHash = "sha256-zH900UtdhHbC6PtdDbnF7lvSMStQzmiAyfUj/jJNvY0=";
 
     nativeBuildInputs = [
       pkg-config
@@ -68,6 +68,9 @@ in
       "journald"
       "otlp_telemetry"
       "media_thumbnail"
+
+      # compilation is broken without it for some reason
+      "url_preview"
     ];
 
     meta = {
