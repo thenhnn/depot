@@ -192,7 +192,7 @@
   chromiumRosettaStone = {
     cpu = platform: let
       name = platform.parsed.cpu.name;
-    in (
+    in
       {
         "x86_64" = "x64";
         "i686" = "x86";
@@ -201,8 +201,7 @@
       }
         .${
         platform.parsed.cpu.name
-      } or (throw "no chromium Rosetta Stone entry for cpu: ${name}")
-    );
+      } or (throw "no chromium Rosetta Stone entry for cpu: ${name}");
     os = platform:
       if platform.isLinux
       then "linux"
