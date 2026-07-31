@@ -15,6 +15,7 @@
   # Native build inputs:
   ninja,
   bashInteractive,
+  go,
   pkg-config,
   python3,
   perl,
@@ -299,6 +300,7 @@
       gperf
       nodejs
       npmHooks.npmConfigHook
+      go # third_party/dawn/tools/generate-sources-gn.py
     ];
 
     depsBuildBuild =
@@ -453,19 +455,26 @@
         # https://chromium-review.googlesource.com/c/chromium/src/+/7858711
         ./patches/chromium-150-rust.patch
 
-        # ninja: Entering directory `out/Release'
-        # ninja: error: 'ar', needed by 'default_for_rust_host_build_tools/obj/build/rust/allocator/liballoc_error_handler_impl.a', missing and no known rule to make it
-        (fetchpatch {
-          name = "chromium-150-backport-build--Omit-ar-from-inputs-when-resolved-via--PATH.patch";
-          # https://chromium-review.googlesource.com/c/chromium/src/+/7904982
-          url = "https://chromium.googlesource.com/chromium/src/+/60f987d8d5f7272793a40290d060b8f50933f825^!?format=TEXT";
-          decode = "base64 -d";
-          hash = "sha256-MryWxSwBxSIONhl3X1cDxTWwNWy8a4yt/sqkrueSUNs=";
-        })
+        # third_party/dawn/tools/generate-sources-gn.py expects a Go binary in
+        # third_party/dawn/tools/golang/linux-amd64/bin/go for x86_64 and
+        # third_party/dawn/tools/golang/linux-arm64/bin/go for aarch64,
+        # which is annoying, so let's make it use Go from $PATH for
+        # both (all) architectures instead.
+        ./patches/chromium-151-dawn-use-Go-from-PATH.patch
       ]
       ++ lib.optionals (lib.versionOlder llvmVersion "23") [
         # clang++: error: unknown argument: '-fno-lifetime-dse'
         ./patches/chromium-147-llvm-22.patch
+
+        # Revert CL 7911761 to help the patch below to apply cleanly.
+        (fetchpatch {
+          name = "chromium-151-revert-Fix-is_wasm-compile-for-supersize.patch";
+          # https://chromium-review.googlesource.com/c/chromium/src/+/7911761
+          url = "https://chromium.googlesource.com/chromium/src/+/160ccfd3b5a2dbab95516928716ae586e17de84b^!?format=TEXT";
+          decode = "base64 -d";
+          revert = true;
+          hash = "sha256-musbcTi2XMnJXW79gG+kr9qcYJZ25fv6MeIeId/nAwI=";
+        })
 
         # clang++: error: unknown argument: '-fdiagnostics-show-inlining-chain'
         # clang++: error: unknown argument: '-fsanitize-ignore-for-ubsan-feature=array-bounds'
