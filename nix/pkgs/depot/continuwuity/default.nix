@@ -34,7 +34,7 @@ in
       patches = [./systemd-fds.patch];
     };
 
-    cargoHash = "sha256-92HNUBooK2vsRHoievoVrHlDk1AL4rA38Aekj0/dgvY=";
+    cargoHash = "sha256-5wRu2iXByPfo2RYhHZK3CcevuBDtvLgI8dVAFRZlTkg=";
 
     nativeBuildInputs = [
       pkg-config
