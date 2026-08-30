@@ -461,6 +461,14 @@
         # which is annoying, so let's make it use Go from $PATH for
         # both (all) architectures instead.
         ./patches/chromium-151-dawn-use-Go-from-PATH.patch
+
+        # ERROR at //build/rust/crubit/BUILD.gn:31:19: Unable to load "/build/src/third_party/rust-toolchain/lib/third_party/crubit/BUILD.gn".
+        #   public_deps = [ "$crubit_src_dir:cpp_api_from_rust_bindings_cpp_deps" ]
+        #                   ^----------------------------------------------------
+        #
+        # Source: https://github.com/ungoogled-software/ungoogled-chromium/pull/3928
+        # by https://github.com/Ahrotahn (ungoogled-chromium, BSD-3-Clause)
+        ./patches/ungoogled-chromium-152-crubit.patch
       ]
       ++ lib.optionals (lib.versionOlder llvmVersion "23") [
         # clang++: error: unknown argument: '-fno-lifetime-dse'
@@ -480,6 +488,9 @@
         # clang++: error: unknown argument: '-fsanitize-ignore-for-ubsan-feature=array-bounds'
         # clang++: error: unknown argument: '-fsanitize-ignore-for-ubsan-feature=return'
         ./patches/chromium-149-llvm-22.patch
+        # error: unknown argument: '-fno-lifetime-safety-inference'
+        # error: unknown argument: '-fno-experimental-lifetime-safety-tu-analysis'
+        ./patches/chromium-152-dawn-llvm-22.patch
       ]
       ++ lib.optionals stdenv.hostPlatform.isAarch64 [
         # [43731/56364] CXX obj/media/gpu/sandbox/sandbox/hardware_video_decoding_sandbox_hook_linux.o
