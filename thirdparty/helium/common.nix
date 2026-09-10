@@ -422,8 +422,6 @@
     patches =
       [
         "${nixpkgs}/patches/cross-compile.patch"
-        # Optional patch to use SOURCE_DATE_EPOCH in compute_build_timestamp.py (should be upstreamed):
-        "${nixpkgs}/patches/no-build-timestamps.patch"
         # Chromium reads initial_preferences from its own executable directory
         # This patch modifies it to read /etc/chromium/initial_preferences
         "${nixpkgs}/patches/chromium-initial-prefs.patch"
@@ -469,28 +467,28 @@
         # Source: https://github.com/ungoogled-software/ungoogled-chromium/pull/3928
         # by https://github.com/Ahrotahn (ungoogled-chromium, BSD-3-Clause)
         ./patches/ungoogled-chromium-152-crubit.patch
+
+        (fetchpatch {
+          name = "chromium-153-revert-Migrate-OpenType-format-check-bindings-to-Crubit.patch";
+          url = "https://chromium.googlesource.com/chromium/src/+/493e6c3911e33cc356856bafbffc6cf95521266b^!?format=TEXT";
+          decode = "base64 -d";
+          revert = true;
+          hash = "sha256-+5lddQSOJz7XTZanDl3/lqQ7CQhnCVzvUMpxvE3Sz2c=";
+        })
+        (fetchpatch {
+          name = "chromium-153-revert-devtools-frontend-Remove-TSGO-flag.patch";
+          url = "https://chromium.googlesource.com/devtools/devtools-frontend/+/2691b4ae139d2e7b6244f05139a0b85082c7473c^!?format=TEXT";
+          decode = "base64 -d";
+          stripLen = 1;
+          extraPrefix = "third_party/devtools-frontend/src/";
+          revert = true;
+          hash = "sha256-Dip5axpXSJbdGmtS7t81nLCvjRPBSkAuJA4Lo6MFKLw=";
+        })
       ]
       ++ lib.optionals (lib.versionOlder llvmVersion "23") [
         # clang++: error: unknown argument: '-fno-lifetime-dse'
         ./patches/chromium-147-llvm-22.patch
-
-        # Revert CL 7911761 to help the patch below to apply cleanly.
-        (fetchpatch {
-          name = "chromium-151-revert-Fix-is_wasm-compile-for-supersize.patch";
-          # https://chromium-review.googlesource.com/c/chromium/src/+/7911761
-          url = "https://chromium.googlesource.com/chromium/src/+/160ccfd3b5a2dbab95516928716ae586e17de84b^!?format=TEXT";
-          decode = "base64 -d";
-          revert = true;
-          hash = "sha256-musbcTi2XMnJXW79gG+kr9qcYJZ25fv6MeIeId/nAwI=";
-        })
-
-        # clang++: error: unknown argument: '-fdiagnostics-show-inlining-chain'
-        # clang++: error: unknown argument: '-fsanitize-ignore-for-ubsan-feature=array-bounds'
-        # clang++: error: unknown argument: '-fsanitize-ignore-for-ubsan-feature=return'
-        ./patches/chromium-149-llvm-22.patch
-        # error: unknown argument: '-fno-lifetime-safety-inference'
-        # error: unknown argument: '-fno-experimental-lifetime-safety-tu-analysis'
-        ./patches/chromium-152-dawn-llvm-22.patch
+        ./patches/chromium-153-llvm-22.patch
       ]
       ++ lib.optionals stdenv.hostPlatform.isAarch64 [
         # [43731/56364] CXX obj/media/gpu/sandbox/sandbox/hardware_video_decoding_sandbox_hook_linux.o
@@ -757,6 +755,10 @@
       // lib.optionalAttrs pulseSupport {
         use_pulseaudio = true;
         link_pulseaudio = true;
+      }
+      // {
+        use_typescript_go = false;
+        devtools_use_typescript_go = false;
       }
       // (
         lib.importTOML "${helium-patches}/flags.gn"
