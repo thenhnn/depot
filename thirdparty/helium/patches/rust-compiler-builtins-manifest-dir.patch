@@ -1,0 +1,8 @@
+diff --git a/third_party/rust-toolchain/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins/build.rs b/third_party/rust-toolchain/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins/build.rs
+--- a/third_party/rust-toolchain/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins/build.rs
++++ b/third_party/rust-toolchain/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins/build.rs
+@@ -15 +15,3 @@
+-    if cfg.manifest_dir.file_name().unwrap() == "builtins-shim" {
++    if let Some(dir) = cfg.manifest_dir.file_name()
++        && dir == "builtins-shim"
++    {
