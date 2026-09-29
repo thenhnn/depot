@@ -255,30 +255,19 @@
   });
 
   # esbuild must match the version in the vendored node_modules.
-  # https://chromium.googlesource.com/devtools/devtools-frontend/+/66df492aaa0129d090937e933dd44c5389ab24d2/package.json#57
+  # https://chromium.googlesource.com/devtools/devtools-frontend/+/cd7bfad9bba968ac23ba67e538f9e1d499991d25/package.json
   esbuild = buildGoModule (finalAttrs: {
     pname = "esbuild";
-    version = "0.25.1";
+    version = "0.28.2";
 
     src = fetchFromGitHub {
       owner = "evanw";
       repo = "esbuild";
       tag = "v${finalAttrs.version}";
-      hash = "sha256-vrhtdrvrcC3dQoJM6hWq6wrGJLSiVww/CNPlL1N5kQ8=";
+      hash = "sha256-I1u+9U5Oj/KzxSjCxwyitwSuDKimatkbC3R2OtaUsfM=";
     };
 
     vendorHash = "sha256-+BfxCyg0KkDQpHt/wycy/8CTG6YBA/VJvJFhhzUnSiQ=";
-  });
-
-  typescriptGo = buildPackages.typescript-go.overrideAttrs (_: {
-    tags = ["noembed"];
-    postInstall = ''
-      lib_dir="$out/lib/typescript"
-      mkdir -p "$lib_dir"
-      cp -r ${buildPackages.typescript-go.src}/internal/bundled/libs/. "$lib_dir/"
-      mv "$out/bin/tsgo" "$lib_dir/tsc"
-      ln -s "$lib_dir/tsc" "$out/bin/tsc"
-    '';
   });
 
   chromiumRosettaStone = {
@@ -555,7 +544,7 @@
       ++ lib.optionals (lib.versionOlder llvmVersion "23") [
         # clang++: error: unknown argument: '-fno-lifetime-dse'
         ./patches/chromium-147-llvm-22.patch
-        ./patches/chromium-153-llvm-22.patch
+        "${nixpkgs}/patches/chromium-155-llvm-22.patch"
       ]
       ++ lib.optionals stdenv.hostPlatform.isAarch64 [
         # [43731/56364] CXX obj/media/gpu/sandbox/sandbox/hardware_video_decoding_sandbox_hook_linux.o
@@ -690,7 +679,7 @@
       # ninja: error: '../../third_party/rust-toolchain/bin/rustc', needed by 'phony/default_for_rust_host_build_tools_rust_bin_inputs', missing and no known rule to make it
       + ''
         mkdir -p third_party/typescript/linux-amd64/src/lib
-        cp -r ${typescriptGo}/lib/typescript/. third_party/typescript/linux-amd64/src/lib/
+        cp -r ${buildPackages.typescript}/lib/typescript/. third_party/typescript/linux-amd64/src/lib/
         chmod u+w third_party/typescript/linux-amd64/src/lib/lib.dom.d.ts
         patch -p4 -d third_party/typescript/linux-amd64/src/lib < third_party/node/patches/typescript.patch
 
@@ -712,7 +701,6 @@
         mkdir -p third_party/rust-toolchain/lib/rustlib/src/rust
         cp -r ${rustPlatform.rustcSrc}/. third_party/rust-toolchain/lib/rustlib/src/rust/
         chmod u+w -R third_party/rust-toolchain/lib/rustlib
-        patch -p1 < ${./patches/rust-compiler-builtins-manifest-dir.patch}
         ln -sv ${rustPlatform.rustVendorSrc} third_party/rust-toolchain/lib/rustlib/src/rust/library/vendor
 
         ${lib.getExe buildPackages.rustc} -V > third_party/rust-toolchain/VERSION
@@ -806,6 +794,10 @@
         chrome_pgo_phase = 0;
         clang_base_path = "${llvmCcAndBintools}";
         use_clang_modules = false;
+
+        # match nixpkgs: metagen requires chromium's bundled clang and libclang
+        # https://chromium-review.googlesource.com/c/v8/v8/+/8365609
+        v8_use_metagen_instance_types = false;
 
         # ERROR at //build/modules/BUILD.gn:80:23: Directory does not exist: /usr/include/
         #     system_headers += expand_directory("${sysroot}/${root_include_dir}", true)
