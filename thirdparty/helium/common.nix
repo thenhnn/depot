@@ -4,8 +4,11 @@
   lib,
   fetchpatch,
   zstd,
+  fetchFromGitHub,
   fetchFromGitiles,
   fetchNpmDeps,
+  rustPlatform,
+  buildGoModule,
   fetchurl,
   buildPackages,
   pkgsBuildBuild,
@@ -16,6 +19,7 @@
   ninja,
   bashInteractive,
   go,
+  cargo,
   pkg-config,
   python3,
   perl,
@@ -30,6 +34,7 @@
   gnChromium,
   symlinkJoin,
   # Build inputs:
+  openssl,
   unzip,
   gnutar,
   bzip2,
@@ -190,6 +195,92 @@
     ];
   };
 
+  crubit = rustPlatform.buildRustPackage (finalAttrs: {
+    pname = "crubit";
+    version = "0-unstable-2026-09-11";
+
+    src = fetchFromGitiles {
+      url = "https://chromium.googlesource.com/external/github.com/google/crubit.git";
+      # https://chromium.googlesource.com/chromium/src/+/154.0.8037.57/tools/rust/update_rust.py#48
+      rev = "69b85cba43f85a6439dc0be86a6fe424bb07a100";
+      hash = "sha256-hSN4ZW3LsN3cerv3h3whAYLDZuoE6YaLuR9WY48P3E0=";
+    };
+
+    cargoHash = "sha256-xJWYE0gfEkf0WvrkaDkXiOYwvrlQGqa7QxkosXKH6UQ=";
+
+    buildInputs = [
+      buildPackages.rustc.llvmPackages.llvm
+    ];
+
+    cargoBuildFlags = [
+      # https://chromium.googlesource.com/chromium/src/+/154.0.8037.57/tools/rust/build_crubit.py#130
+      "--bin"
+      "cc_bindings_from_rs"
+    ];
+
+    cargoTestFlags = finalAttrs.cargoBuildFlags;
+
+    # https://doc.rust-lang.org/error_codes/E0554.html
+    env.RUSTC_BOOTSTRAP = 1;
+  });
+
+  gnrt = rustPlatform.buildRustPackage (finalAttrs: {
+    pname = "gnrt";
+    version = "0-unstable";
+
+    src = chromiumDeps."src";
+    sourceRoot = "tools/crates/gnrt";
+
+    # -vendor-staging does not inherit zstd from top-level, so use fetchCargoVendor directly.
+    cargoDeps = rustPlatform.fetchCargoVendor {
+      inherit
+        (finalAttrs)
+        pname
+        version
+        src
+        sourceRoot
+        ;
+      nativeBuildInputs = [zstd];
+      hash = "sha256-RO1fJ4Qgt5CxcEwtZT+7SZx7XqiaAmURK3DdEnzIP2k=";
+    };
+
+    nativeBuildInputs = [
+      zstd
+      pkg-config
+    ];
+
+    buildInputs = [openssl];
+
+    meta.mainProgram = "gnrt";
+  });
+
+  # esbuild must match the version in the vendored node_modules.
+  # https://chromium.googlesource.com/devtools/devtools-frontend/+/66df492aaa0129d090937e933dd44c5389ab24d2/package.json#57
+  esbuild = buildGoModule (finalAttrs: {
+    pname = "esbuild";
+    version = "0.25.1";
+
+    src = fetchFromGitHub {
+      owner = "evanw";
+      repo = "esbuild";
+      tag = "v${finalAttrs.version}";
+      hash = "sha256-vrhtdrvrcC3dQoJM6hWq6wrGJLSiVww/CNPlL1N5kQ8=";
+    };
+
+    vendorHash = "sha256-+BfxCyg0KkDQpHt/wycy/8CTG6YBA/VJvJFhhzUnSiQ=";
+  });
+
+  typescriptGo = buildPackages.typescript-go.overrideAttrs (_: {
+    tags = ["noembed"];
+    postInstall = ''
+      lib_dir="$out/lib/typescript"
+      mkdir -p "$lib_dir"
+      cp -r ${buildPackages.typescript-go.src}/internal/bundled/libs/. "$lib_dir/"
+      mv "$out/bin/tsgo" "$lib_dir/tsc"
+      ln -s "$lib_dir/tsc" "$out/bin/tsc"
+    '';
+  });
+
   chromiumRosettaStone = {
     cpu = platform: let
       name = platform.parsed.cpu.name;
@@ -301,6 +392,7 @@
       nodejs
       npmHooks.npmConfigHook
       go # third_party/dawn/tools/generate-sources-gn.py
+      cargo
     ];
 
     depsBuildBuild =
@@ -459,31 +551,6 @@
         # which is annoying, so let's make it use Go from $PATH for
         # both (all) architectures instead.
         ./patches/chromium-151-dawn-use-Go-from-PATH.patch
-
-        # ERROR at //build/rust/crubit/BUILD.gn:31:19: Unable to load "/build/src/third_party/rust-toolchain/lib/third_party/crubit/BUILD.gn".
-        #   public_deps = [ "$crubit_src_dir:cpp_api_from_rust_bindings_cpp_deps" ]
-        #                   ^----------------------------------------------------
-        #
-        # Source: https://github.com/ungoogled-software/ungoogled-chromium/pull/3928
-        # by https://github.com/Ahrotahn (ungoogled-chromium, BSD-3-Clause)
-        ./patches/ungoogled-chromium-152-crubit.patch
-
-        (fetchpatch {
-          name = "chromium-153-revert-Migrate-OpenType-format-check-bindings-to-Crubit.patch";
-          url = "https://chromium.googlesource.com/chromium/src/+/493e6c3911e33cc356856bafbffc6cf95521266b^!?format=TEXT";
-          decode = "base64 -d";
-          revert = true;
-          hash = "sha256-+5lddQSOJz7XTZanDl3/lqQ7CQhnCVzvUMpxvE3Sz2c=";
-        })
-        (fetchpatch {
-          name = "chromium-153-revert-devtools-frontend-Remove-TSGO-flag.patch";
-          url = "https://chromium.googlesource.com/devtools/devtools-frontend/+/2691b4ae139d2e7b6244f05139a0b85082c7473c^!?format=TEXT";
-          decode = "base64 -d";
-          stripLen = 1;
-          extraPrefix = "third_party/devtools-frontend/src/";
-          revert = true;
-          hash = "sha256-Dip5axpXSJbdGmtS7t81nLCvjRPBSkAuJA4Lo6MFKLw=";
-        })
       ]
       ++ lib.optionals (lib.versionOlder llvmVersion "23") [
         # clang++: error: unknown argument: '-fno-lifetime-dse'
@@ -622,8 +689,33 @@
       # https://chromium-review.googlesource.com/c/chromium/src/+/7719879
       # ninja: error: '../../third_party/rust-toolchain/bin/rustc', needed by 'phony/default_for_rust_host_build_tools_rust_bin_inputs', missing and no known rule to make it
       + ''
+        mkdir -p third_party/typescript/linux-amd64/src/lib
+        cp -r ${typescriptGo}/lib/typescript/. third_party/typescript/linux-amd64/src/lib/
+        chmod u+w third_party/typescript/linux-amd64/src/lib/lib.dom.d.ts
+        patch -p4 -d third_party/typescript/linux-amd64/src/lib < third_party/node/patches/typescript.patch
+
+        mkdir -p third_party/devtools-frontend/src/third_party/esbuild
+        ln -sv ${esbuild}/bin/esbuild third_party/devtools-frontend/src/third_party/esbuild/esbuild
+
+        mkdir -p buildtools/linux64-format
+        ln -sv ${buildPackages.rustc.llvmPackages.clang-tools}/bin/clang-format buildtools/linux64-format/clang-format
+
         mkdir -p third_party/rust-toolchain/bin
         ln -s "${buildPackages.rustc}/bin/rustc" third_party/rust-toolchain/bin/rustc
+        ln -sv ${buildPackages.cargo}/bin/cargo third_party/rust-toolchain/bin/cargo
+        ln -sv ${buildPackages.rustfmt}/bin/rustfmt third_party/rust-toolchain/bin/rustfmt
+        ln -sv ${crubit}/bin/* third_party/rust-toolchain/bin/
+
+        mkdir -p third_party/rust-toolchain/lib/third_party
+        ln -sv ${crubit.src} third_party/rust-toolchain/lib/third_party/crubit
+
+        mkdir -p third_party/rust-toolchain/lib/rustlib/src/rust
+        cp -r ${rustPlatform.rustcSrc}/. third_party/rust-toolchain/lib/rustlib/src/rust/
+        chmod u+w -R third_party/rust-toolchain/lib/rustlib
+        patch -p1 < ${./patches/rust-compiler-builtins-manifest-dir.patch}
+        ln -sv ${rustPlatform.rustVendorSrc} third_party/rust-toolchain/lib/rustlib/src/rust/library/vendor
+
+        ${lib.getExe buildPackages.rustc} -V > third_party/rust-toolchain/VERSION
       ''
       + lib.optionalString (stdenv.hostPlatform == stdenv.buildPlatform && stdenv.hostPlatform.isAarch64)
       ''
@@ -727,8 +819,6 @@
         # (ld.lld: error: unable to find library -l:libffi_pic.a):
         use_system_libffi = true;
 
-        # Use nixpkgs Rust compiler instead of the one shipped by Chromium.
-        rust_sysroot_absolute = "${buildPackages.rustc}";
         rust_bindgen_root = "${rustTools}";
       }
       // {
@@ -755,10 +845,6 @@
       // lib.optionalAttrs pulseSupport {
         use_pulseaudio = true;
         link_pulseaudio = true;
-      }
-      // {
-        use_typescript_go = false;
-        devtools_use_typescript_go = false;
       }
       // (
         lib.importTOML "${helium-patches}/flags.gn"
@@ -791,6 +877,9 @@
       # error TS2352: Conversion of type 'Node[]' to type 'TSPropertySignature[]' [...]
       + ''
         rm -r third_party/node/node_modules/@types/estree
+      ''
+      + ''
+        ${lib.getExe gnrt} gen --for-std "third_party/rust-toolchain/lib/rustlib/src/rust"
       '';
 
     configurePhase = ''

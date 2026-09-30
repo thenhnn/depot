@@ -59,8 +59,8 @@ mkChromiumDerivation (_base: rec {
 
     substituteInPlace $out/share/applications/chromium-browser.desktop \
       --replace-fail "@@MENUNAME" "Chromium" \
-      --replace-fail "@@PACKAGE" "chromium" \
-      --replace-fail "/usr/bin/@@usr_bin_symlink_name" "chromium" \
+      --replace-fail "@@desktop_icon" "chromium" \
+      --replace-fail "@@desktop_exec" "chromium" \
       --replace-fail "@@uri_scheme" "x-scheme-handler/chromium;" \
       --replace-fail "@@startup_wm_class" "chromium-browser" \
       --replace-fail "@@extra_desktop_entries" ""
