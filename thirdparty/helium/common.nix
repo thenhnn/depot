@@ -197,23 +197,23 @@
 
   crubit = rustPlatform.buildRustPackage (finalAttrs: {
     pname = "crubit";
-    version = "0-unstable-2026-09-11";
+    version = "0-unstable-2026-09-09";
 
     src = fetchFromGitiles {
       url = "https://chromium.googlesource.com/external/github.com/google/crubit.git";
-      # https://chromium.googlesource.com/chromium/src/+/154.0.8037.57/tools/rust/update_rust.py#48
-      rev = "69b85cba43f85a6439dc0be86a6fe424bb07a100";
-      hash = "sha256-hSN4ZW3LsN3cerv3h3whAYLDZuoE6YaLuR9WY48P3E0=";
+      # https://chromium.googlesource.com/chromium/src/+/156.0.8078.47/tools/rust/update_rust.py#48
+      rev = "a355b02da81bc9f350925c73ec0322ce4d5140f1";
+      hash = "sha256-Z2wsYe2Tln+CeAV9naC1QRnmvrz3HZXF06cNIp1RqU4=";
     };
 
-    cargoHash = "sha256-xJWYE0gfEkf0WvrkaDkXiOYwvrlQGqa7QxkosXKH6UQ=";
+    cargoHash = "sha256-5EB6yTk+eGffjUK/TXf6ZxCU0p05Dh1nL8q3Nl6TiiY=";
 
     buildInputs = [
       buildPackages.rustc.llvmPackages.llvm
     ];
 
     cargoBuildFlags = [
-      # https://chromium.googlesource.com/chromium/src/+/154.0.8037.57/tools/rust/build_crubit.py#130
+      # https://chromium.googlesource.com/chromium/src/+/156.0.8078.47/tools/rust/build_crubit.py#130
       "--bin"
       "cc_bindings_from_rs"
     ];
@@ -241,7 +241,7 @@
         sourceRoot
         ;
       nativeBuildInputs = [zstd];
-      hash = "sha256-RO1fJ4Qgt5CxcEwtZT+7SZx7XqiaAmURK3DdEnzIP2k=";
+      hash = "sha256-hb/HSco4PeudjnZFGb2+IHw4rQ7ShI42XWqKOwdgrb4=";
     };
 
     nativeBuildInputs = [
